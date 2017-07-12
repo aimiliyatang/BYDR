@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+	<style>
+		*{margin:0;padding:0;}
+		body{background:#000;}
+		canvas{background:url(./img/game_bg_2_hd.jpg);display:block;margin:80px auto;}
+	</style>
+	<!-- 数据 -->
+	<script src="./js/resource.js"></script>
+
+	<!-- 公共方法 -->
+	<script src="./js/common.js"></script>
+
+	<!-- 加载活鱼  死鱼-->
+	<script src="./js/fish.js"></script>
+
+	<!-- 鲨鱼类 -->
+	<script src="./js/shark.js"></script>
+
+	<!-- 加载炮筒 -->
+	<script src="./js/cannon.js"></script>
+
+	<!-- 加载炮弹 -->
+	<script src="./js/bullet.js"></script>
+
+	<!-- 金币类 -->
+	<script src="./js/coin.js"></script>
+
+	<!-- 加载渔网 -->
+	<script src="./js/web.js"></script>
+
+	<!-- 金币文本 -->
+	<script src="./js/coinText.js"></script>
+
+	<!-- 加载数据和绘图 -->
+	<script>
+		var Json={}; //{"fesh1":object,"fesh2":object,....}
+		window.onload=function(){
+			var canvas=document.getElementById("can");
+			var brush=canvas.getContext("2d");
+			var fishArr=[];//全部的鱼
+			var bulletArr=[];//子弹数组
+			var coinArr=[];//收集金币
+			var deFishArr=[];//收集死鱼
+			var webArr=[];//收集渔网
+			var coinTextArr=[];//收集金币文字
+			var totalScore=0;  //总分
+			var cannon=null;
+			console.log(1);
+			//加载资源 common.js
+			loadData(resource,init,function(current,total){
+				console.log(parseInt(current/total*100)+"%");
+			});
+
+			function init(){
+				cannon=new Cannon(1);
+				//改变大炮方向
+				// canvas.onmousemove=function(e){
+					
+				// }
+				
+				//绑定加减点击事件以及//打炮
+				canvas.onmousedown=function(e){
+					var e=e||window.event;
+					var x=e.pageX-canvas.offsetLeft;
+					var y=e.pageY-canvas.offsetTop;
+					if(brush.isPointInPath(x,y)&&x<400){
+						// alert("-");
+						brush.drawImage(Json["bottom"],
+							88,72,45,32,
+							346,560,45,32
+						);
+						cannon.type--;  //改变大炮的类型
+						if(cannon.type<=0){
+							cannon.type=7;
+						}
+
+					}else if(brush.isPointInPath(x,y)&&x>470){
+						// alert("+");
+						brush.drawImage(Json["bottom"],
+							0,72,45,32,
+							470,560,45,32
+						);
+						cannon.type++;
+						if(cannon.type>=8){
+							cannon.type=1;
+						}
+					}else{   //大炮射击 //改变大炮方向
+						var e=e||window.event;
+						var x=e.offsetX-cannon.x;
+						var y=cannon.y-e.offsetY;
+						cannon.rotate=Math.atan2(x,y)*180/Math.PI;
+						cannon.shoot();
+						var bull=new Bullet(cannon.type);
+						bull.rotate=cannon.rotate;
+						bull.x=cannon.x;
+						bull.y=cannon.y;
+						bulletArr.push(bull);
+					}
+				}
+
+				//统一绘制
+				setInterval(function(){
+					brush.clearRect(0,0,canvas.width,canvas.height);
+					if(Math.random()<=0.05){
+						var fish=createFish(canvas); //common.js
+						fishArr.push(fish);
+					}
+
+					//画鱼
+					for(var i=0;i<fishArr.length;i++){
+						fishArr[i].draw(brush);
+					}
+
+					//画炮台
+					brush.drawImage(Json["bottom"],
+						0,0,765,70,
+						0,canvas.height-72,765,70
+					);
+
+					//绘制+号的点击路径
+					brush.rect(470,560,45,32);
+					//画+号按钮
+					brush.drawImage(Json["bottom"],
+						44,72,45,32,
+						470,560,45,32
+					);
+
+					//绘制-号的点击路径
+					brush.rect(346,560,45,32);
+					//画-号按钮  x 87 y72
+					brush.drawImage(Json["bottom"],
+						132,72,45,32,
+						346,560,45,32
+					);
+
+					//画子弹
+					for(var j=0;j<bulletArr.length;j++){
+						bulletArr[j].draw(brush);
+					}
+
+					//画炮筒
+					cannon.draw(brush);
+
+					//检测子弹是否击中鱼
+					for(var i=0;i<bulletArr.length;i++){
+						for(var j=0;j<fishArr.length;j++){
+							if(bulletArr[i].shoot(fishArr[j].x,fishArr[j].y,fishArr[j].collR)){
+								fishArr[j].life-=bulletArr[i].atk;
+								var x=fishArr[j].x;
+								var y=fishArr[j].y;
+								var type=fishArr[j].type;
+								var coinType=1;
+								if(fishArr[j].life<=0){
+									if(type<=5){
+										//创建死鱼
+										var defish=new DeFish(type);
+									}else{
+										var defish=new DeShark(type);
+									}
+									
+									defish.x=x;
+									defish.y=y;
+									defish.rotate=fishArr[j].rotate;
+									deFishArr.push(defish);
+									switch(type){
+										case 1 :;
+										case 2 :;
+										case 3 :;
+										case 4 :;
+										case 5 :coinType=1;break;
+										case 6 :;
+										case 7 :coinType=2;break;
+									}
+									//创建一个硬币
+									var coin =new Coin(coinType);
+									coin.x=x;
+									coin.y=y;
+									coinArr.push(coin);
+									//创建一个金币文本
+									var cointext=new CoinText();
+									cointext.x=x;
+									cointext.y=y;
+									cointext.cur=type;
+									coinTextArr.push(cointext);
+									//计算总分
+									totalScore+=type;
+
+									//清除鱼和子弹
+									clearInterval(bulletArr[i].timer);
+									clearInterval(fishArr[j].timer);
+									bulletArr.splice(i--,1);
+									fishArr.splice(j--,1);
+
+									//创建一个渔网
+									var web=new Web(cannon.type);
+									web.x=x;
+									web.y=y;
+									webArr.push(web);
+								}else{
+									//清除炮弹
+									clearInterval(bulletArr[i].timer);
+									bulletArr.splice(i--,1);
+									//创建一个渔网
+									var web=new Web(cannon.type);
+									web.x=x;
+									web.y=y;
+									webArr.push(web);
+								}
+
+								break;  //如果当前的鱼和子弹同归余烬之后，则跳过本颗子弹，遍历下一颗
+
+							}
+						}
+					}
+
+					//绘制总分
+					drawScore(totalScore,canvas,brush);
+
+					//绘制死鱼
+					for(var i=0;i<deFishArr.length;i++){
+						deFishArr[i].draw(brush);
+					}
+
+					//绘制金币
+					for(var i=0;i<coinArr.length;i++){
+						coinArr[i].draw(brush);
+					}
+
+					//绘制金币文本
+					for(var i=0;i<coinTextArr.length;i++){
+						coinTextArr[i].draw(brush);
+					}
+
+					//绘制渔网
+					for(var i=0;i<webArr.length;i++){
+						webArr[i].draw(brush);
+					}
+
+					//清除游出去的鱼
+					for(var i=fishArr.length-1;i>=0;i--){
+						if(fishArr[i].x<-200||fishArr[i].x>canvas.width+200||fishArr[i].y<-200||fishArr[i].y>canvas.height+200){
+							clearInterval(fishArr[i].timer);
+							fishArr.splice(i,1);
+						}
+					}
+					// console.log(fishArr);
+
+					//清除多余的炮弹    //清除数组中的第i项，数组会坍塌 有2中解决方式 1.倒着循环 2.arr.splice(i--,1);
+					for(var i=0;i<bulletArr.length;i++){
+						if(bulletArr[i].x<-100||bulletArr[i].x>canvas.width+100||bulletArr[i].y<-100||bulletArr[i].y>canvas.height+100){
+							clearInterval(bulletArr[i].timer);
+							bulletArr.splice(i--,1);
+						}
+					}
+					// console.log(bulletArr);
+
+
+					//清除多余的金币
+					for(var i=0;i<coinArr.length;i++){
+						if(coinArr[i].x<=2&&coinArr[i].y>=518){
+							clearInterval(coinArr[i].timer);
+							coinArr.splice(i--,1);
+						}
+					}
+
+					//清除多余的死鱼
+					for(var i=0;i<deFishArr.length;i++){
+						if(deFishArr[i].isNeedDel){
+							clearInterval(deFishArr[i].timer);
+							deFishArr.splice(i--,1);
+						}
+					}
+
+					//清除多余的渔网
+					for(var i=0;i<webArr.length;i++){
+						if(webArr[i].scaleNum>=1){
+							webArr.splice(i--,1);
+						}
+					}
+
+					//清除多余的金币文字
+					for(var i=0;i<coinTextArr.length;i++){
+						if(coinTextArr[i].isNeedDel){
+							coinTextArr.splice(i--,1);
+						}
+					}
+
+				},16);
+			}
+		}
+
+
+	</script>
+</head>
+<body>
+	<canvas id="can" width="800" height="600"></canvas>
+</body>
+</html>
